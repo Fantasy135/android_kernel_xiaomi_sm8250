@@ -137,3 +137,7 @@ kernel/configs/android-*.cfg
 
 out_miui/
 out_aosp/
+
+# Outputs
+out
+note
