@@ -668,11 +668,12 @@ SMB2_negotiate(const unsigned int xid, struct cifs_ses *ses)
 		total_len += 4;
 	} else if (strcmp(ses->server->vals->version_string,
 		   SMBDEFAULT_VERSION_STRING) == 0) {
-		req->Dialects[0] = cpu_to_le16(SMB21_PROT_ID);
-		req->Dialects[1] = cpu_to_le16(SMB30_PROT_ID);
-		req->Dialects[2] = cpu_to_le16(SMB302_PROT_ID);
-		req->DialectCount = cpu_to_le16(3);
-		total_len += 6;
+		req->Dialects[0] = cpu_to_le16(SMB311_PROT_ID);
+		req->Dialects[1] = cpu_to_le16(SMB302_PROT_ID);
+		req->Dialects[2] = cpu_to_le16(SMB30_PROT_ID);
+		req->Dialects[3] = cpu_to_le16(SMB21_PROT_ID);
+		req->DialectCount = cpu_to_le16(4);
+		total_len += 8;
 	} else {
 		/* otherwise send specific dialect */
 		req->Dialects[0] = cpu_to_le16(ses->server->vals->protocol_id);
