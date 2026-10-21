@@ -1732,9 +1732,9 @@ static int exec_binprm(struct linux_binprm *bprm)
  * sys_execve() executes a new program.
  */
 #ifdef CONFIG_KSU_SUSFS
+extern bool susfs_is_current_proc_no_su(void);
 extern struct static_key_true ksu_su_compat_enabled;
 extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
-extern bool __ksu_is_allow_uid_for_current(uid_t uid);
 extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 			void *envp, int *flags);
 extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv,
@@ -1763,9 +1763,11 @@ static int __do_execve_file(int fd, struct filename *filename,
 		goto orig_flow;
 	if (static_branch_likely(&ksu_su_compat_enabled)) {
 		if (static_branch_unlikely(&susfs_is_sdcard_android_data_not_decrypted))
-		is_su_session = !ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
-	else
-		is_su_session = !ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
+			is_su_session = !ksu_handle_execveat(&fd, &filename,
+					&argv, &envp, &flags);
+		else
+			is_su_session = !ksu_handle_execveat_sucompat(&fd,
+					&filename, &argv, &envp, &flags);
 	}
 orig_flow:
 #endif
