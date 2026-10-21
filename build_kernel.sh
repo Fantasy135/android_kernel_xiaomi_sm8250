@@ -43,7 +43,7 @@ done
 # Configuration & Environment
 # ==========================================
 KERNEL_DIR="$(pwd)"
-TOOLCHAIN_BIN="$HOME/zyc-clang/bin"
+TOOLCHAIN_BIN="$HOME/TOOLCHAIN/zyc-clang/bin"
 
 export PATH="${TOOLCHAIN_BIN}:${PATH}"
 export ARCH="arm64"
@@ -73,10 +73,10 @@ mkdir -p "$CCACHE_DIR"
 # ==========================================
 if [ "$ENABLE_KSU" -eq 1 ]; then
     echo "==========================================="
-    echo " [*] Initializing KernelSU (ReSukiSU) Setup"
+    echo " [*] Initializing KernelSU (BakaSU) Setup"
     echo "==========================================="
-    echo "[*] Downloading and running ReSukiSU remote setup script..."
-    curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
+    echo "[*] Downloading and running BakaSU remote setup script..."
+#    curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash
     echo "[+] KernelSU setup finished."
 fi
 
@@ -106,6 +106,25 @@ git clone https://github.com/AstideLabs/AnyKernel3 -b kona --single-branch --dep
 echo "[+] AnyKernel3 cloned successfully."
 echo "[*] Adjusting AnyKernel3..."
 sed -i "s/^device\.name1=.*/device.name1=${DEVICE_NAME}/" anykernel/anykernel.sh
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("anykernel/anykernel.sh")
+text = path.read_text()
+old = '''userflavor="$(file_getprop /system/build.prop "ro.build.flavor")";
+case "$userflavor" in
+    missi*|qssi*) os="miui"; os_string="MIUI ROM";;
+    *) os="aosp"; os_string="AOSP ROM";;
+esac;'''
+new = '''zip_name="__AK3_ZIP_NAME__";
+case "$zip_name" in
+    *[Mm][Ii][Uu][Ii]*) os="miui"; os_string="MIUI ROM";;
+    *) os="aosp"; os_string="AOSP ROM";;
+esac;'''
+if old not in text:
+    raise SystemExit("[!] Unable to patch AnyKernel3 OS detection")
+path.write_text(text.replace(old, new, 1))
+PY
 echo "[*] AnyKernel3 adjusted successfully."
 echo "==========================================="
 
@@ -204,6 +223,17 @@ build_target() {
     echo "[*] Injecting Baseband-guard configuration..."
     scripts/config --file "${OUT_DIR}/.config" -e BBG
 
+    echo "[*] Setting zram default compressor to zstd..."
+    scripts/config --file "${OUT_DIR}/.config" \
+        -e CRYPTO_LZ4HC \
+        -d CRYPTO_ZSTD \
+        -d ZRAM_DEF_COMP_LZORLE \
+        -d ZRAM_DEF_COMP_LZ4 \
+        -d ZRAM_DEF_COMP_LZO \
+        -e ZRAM_DEF_COMP_LZ4HC \
+        -d ZRAM_DEF_COMP_842 \
+        -d ZRAM_DEF_COMP_ZSTD
+
     # 2. KernelSU configurations
     if [ "$ENABLE_KSU" -eq 1 ]; then
         echo "[*] Injecting KernelSU & SUSFS configurations..."
@@ -296,11 +326,12 @@ build_target() {
         # 确定 ZIP 文件名
         local KSU_ZIP_STR="NoKernelSU"
         if [ "$ENABLE_KSU" -eq 1 ]; then
-            KSU_ZIP_STR="ReSukiSU-SuSFS"
+            KSU_ZIP_STR="BakaSU-SuSFS"
         fi
         local GIT_COMMIT_ID=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
         local OS_UPPER=$(echo "$OS_TYPE" | tr '[:lower:]' '[:upper:]')
         local ZIP_FILENAME="APTKernel_${OS_UPPER}_${DEVICE_NAME}_${KSU_ZIP_STR}_$(date +'%Y%m%d_%H%M%S')_anykernel3_${GIT_COMMIT_ID}.zip"
+        sed -i "s|^zip_name=.*|zip_name=\"${ZIP_FILENAME}\";|" anykernel/anykernel.sh
         
         echo "[*] Zipping $ZIP_FILENAME ..."
         pushd anykernel > /dev/null
